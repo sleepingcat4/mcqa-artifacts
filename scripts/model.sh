@@ -12,7 +12,7 @@ experiments=("normal" "artifact_choices")
 datasets=("ARC")
 train_dataset_split="train"
 eval_dataset_split="test"
-hf_dataset_name="nbalepur/MCQA_quality"
+hf_dataset_name="nbalepur/mcqa_artifacts"
 
 # what partition of the dataset to run
 # can be "full" or in halves (e.g. "first_half"), quarters (e.g. "first_quarter"), or eigths (e.g. "first_eighth")
