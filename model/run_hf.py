@@ -262,7 +262,7 @@ if __name__ == '__main__':
     dataset_names, dataset_split, hf_dataset_name, prompt_types, model_name, hf_model_name, load_in_4bit, load_in_8bit, use_20_fewshot, half, prompt_dir, res_dir, cache_dir = setup()
 
     # get the model
-    pipe, tokenizer = load_model(hf_model_name, load_in_4bit, load_in_8bit)
+    pipe, tokenizer = load_model(hf_model_name, load_in_4bit, load_in_8bit, cache_dir)
 
     # run inference
     run_inference(dataset_names, dataset_split, hf_dataset_name, prompt_types, model_name, half, use_20_fewshot, pipe, tokenizer)
