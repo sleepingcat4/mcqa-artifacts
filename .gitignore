@@ -1,1 +1,4 @@
 scripts/
+venv/
+cache/
+results/

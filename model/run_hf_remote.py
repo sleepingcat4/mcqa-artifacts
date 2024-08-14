@@ -1,21 +1,16 @@
 # imports and directory setup
 from data_loader import create_data, DatasetName, PromptType
 
-import pickle
 import datasets
-import json
-from transformers import pipeline
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import transformers
+from huggingface_hub.hf_api import HfFolder
+from transformers import AutoTokenizer, AutoModelForCausalLM, StoppingCriteria, StoppingCriteriaList
 import torch
 import tqdm
 import os
-import copy
-from transformers import AutoTokenizer
-from huggingface_hub.hf_api import HfFolder
+import pickle
 
 # =========================================== Argument Setup ===========================================
+
 
 def setup():
 
@@ -28,7 +23,9 @@ def setup():
                 if x in enum_members:
                     out.append(enum_members[x])
                 else:
-                    raise argparse.ArgumentTypeError(f"You used {x}, but value must be one of {', '.join(enum_members.keys())}")
+                    raise argparse.ArgumentTypeError(
+                        f"You used {x}, but value must be one of {', '.join(enum_members.keys())}"
+                    )
             return out
 
         return converter
@@ -51,28 +48,24 @@ def setup():
     )
     parser.add_argument(
         "--dataset_name",
-        nargs='*',
         type=enum_type(DatasetName),
         help="Name of the dataset (in dataset_name column)",
         default=[],
     )
     parser.add_argument(
         "--train_dataset_split",
-        nargs='*',
         type=str,
         help="Training dataset split",
         default="",
     )
     parser.add_argument(
         "--eval_dataset_split",
-        nargs='*',
         type=str,
         help="Evaluation dataset split",
         default="",
     )
     parser.add_argument(
         "--hf_dataset_name",
-        nargs='*',
         type=str,
         help="Name of the dataset on huggingface",
         default="",
@@ -96,10 +89,9 @@ def setup():
         default="",
     )
     parser.add_argument(
-        '--prompt_types', 
-        nargs='*', 
-        type=enum_type(PromptType), 
-        help='Prompt types/experiments to run', 
+        '--prompt_types',
+        type=enum_type(PromptType),
+        help='Prompt types/experiments to run',
         default=[]
     )
     parser.add_argument(
@@ -139,7 +131,7 @@ def setup():
     load_in_8bit = (args.load_in_8bit == 'True')
     use_20_fewshot = (args.use_20_fewshot == 'True')
 
-    assert(not (load_in_4bit and load_in_8bit))
+    assert not (load_in_4bit and load_in_8bit)
 
     dataset_names = args.dataset_name
     dataset_split = (args.train_dataset_split, args.eval_dataset_split)
@@ -152,14 +144,29 @@ def setup():
     hf_token = args.hf_token
     HfFolder.save_token(hf_token)
 
-    return dataset_names, dataset_split, hf_dataset_name, prompt_types, model_name, hf_model_name, load_in_4bit, load_in_8bit, use_20_fewshot, partition, args.prompt_dir, args.res_dir, args.cache_dir
+    return (
+        dataset_names,
+        dataset_split,
+        hf_dataset_name,
+        prompt_types,
+        model_name,
+        hf_model_name,
+        load_in_4bit,
+        load_in_8bit,
+        use_20_fewshot,
+        partition,
+        args.prompt_dir,
+        args.res_dir,
+        args.cache_dir
+    )
 
 # =========================================== Load Model ===========================================
+
 
 def load_model(hf_model_name, load_in_4bit, load_in_8bit, cache_dir):
 
     # load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(hf_model_name, cache_dir = cache_dir, trust_remote_code = True)
+    tokenizer = AutoTokenizer.from_pretrained(hf_model_name, cache_dir=cache_dir, trust_remote_code=True)
 
     # set up pipeline
     dtype = {
@@ -169,21 +176,22 @@ def load_model(hf_model_name, load_in_4bit, load_in_8bit, cache_dir):
             "auto": "auto",
     }['auto']
 
-    model = AutoModelForCausalLM.from_pretrained(hf_model_name, 
-                                                 torch_dtype=dtype,
-                                                 device_map="cuda",
-                                                 trust_remote_code=True,
-                                                 load_in_4bit=load_in_4bit,
-                                                 load_in_8bit=load_in_8bit,
-                                                 cache_dir=cache_dir)
+    model = AutoModelForCausalLM.from_pretrained(
+        hf_model_name,
+        torch_dtype=dtype,
+        device_map="cuda",
+        trust_remote_code=True,
+        load_in_4bit=load_in_4bit,
+        load_in_8bit=load_in_8bit,
+        cache_dir=cache_dir
+    )
 
     return model, tokenizer
 
-import torch
-from transformers import StoppingCriteria, StoppingCriteriaList
+
 class StoppingCriteriaSub(StoppingCriteria):
 
-    def __init__(self, stop_tokens = [], prompt_len = 0):
+    def __init__(self, stop_tokens=[], prompt_len=0):
         super().__init__()
         self.prompt_len = prompt_len
         self.stop_tokens = stop_tokens
@@ -194,30 +202,47 @@ class StoppingCriteriaSub(StoppingCriteria):
         seq_in_gen = sublist in [input_ids[i:len(sublist)+i] for i in range(self.prompt_len, len(input_ids))]
         return seq_in_gen
 
-def generate_text(prompt, stop_token):
+
+def generate_text(model, tokenizer, prompt, stop_token):
     input_ids = tokenizer.encode(prompt, return_tensors='pt')
     inputs = tokenizer(prompt, return_tensors='pt', return_attention_mask=False).to('cuda')
-    stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(tokenizer(stop_token).input_ids[2:], prompt_len=input_ids.shape[1])])
-    outputs = model.generate(**inputs,
-                             min_new_tokens=5,
-                             max_new_tokens=200,
-                             do_sample=False,
-                             stopping_criteria=stopping_criteria,
-                             ).to('cpu').detach()
+    stopping_criteria = StoppingCriteriaList(
+        [StoppingCriteriaSub(tokenizer(stop_token).input_ids[2:], prompt_len=input_ids.shape[1])]
+    )
+    outputs = model.generate(
+        **inputs,
+        min_new_tokens=5,
+        max_new_tokens=200,
+        do_sample=False,
+        stopping_criteria=stopping_criteria
+    ).to('cpu').detach()
     response = tokenizer.batch_decode(outputs[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0]
     return response[:-len(stop_token)].strip()
 
-def run_inference(dataset_names, dataset_split, hf_dataset_name, prompt_types, model_name, partition, use_20_fewshot, pipe, tokenizer, prompt_dir, res_dir):
+
+def run_inference(
+    dataset_names,
+    dataset_split,
+    hf_dataset_name,
+    prompt_types,
+    model_name,
+    partition,
+    use_20_fewshot,
+    model,
+    tokenizer,
+    prompt_dir,
+    res_dir
+):
 
     # load data
     ds = datasets.load_dataset(hf_dataset_name)
 
-    for dataset_name in dataset_names[0]:
+    for dataset_name in dataset_names:
 
         # results directory setup
-        results_dir = f'{res_dir}{dataset_name.value}/{model_name}'
+        results_dir = f'{res_dir}/{dataset_name.value}/{model_name}'
 
-        for pt in prompt_types[0]:
+        for pt in prompt_types:
             data = create_data(ds, dataset_name, dataset_split, pt, prompt_dir, use_20_fewshot=use_20_fewshot)
             input_prompts, output_letters, stop_token = data['input'], data['output'], data['stop_token']
 
@@ -243,8 +268,8 @@ def run_inference(dataset_names, dataset_split, hf_dataset_name, prompt_types, m
             start, end = partition_map[partition]
 
             for i in tqdm.tqdm(range(start, end)):
-                prompt = input_prompts[i] # get prompt
-                out_text = generate_text(prompt, stop_token) # generate output
+                prompt = input_prompts[i]  # get prompt
+                out_text = generate_text(model, tokenizer, prompt, stop_token)  # generate output
                 if i == len(input_prompts)-1:
                     print('done generating!', flush=True)
                 answers['raw_text'].append(out_text)
@@ -255,19 +280,33 @@ def run_inference(dataset_names, dataset_split, hf_dataset_name, prompt_types, m
                 final_res_dir = f'{results_dir}/{pt.value}_{partition}.pkl'
             else:
                 final_res_dir = f'{results_dir}/{pt.value}.pkl'
-                
+
             if not os.path.exists('/'.join(final_res_dir.split('/')[:-1])):
                 os.makedirs('/'.join(final_res_dir.split('/')[:-1]))
             with open(final_res_dir, 'wb') as handle:
                 pickle.dump(answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+
 if __name__ == '__main__':
-    
+
     # set up arguments
-    dataset_names, dataset_split, hf_dataset_name, prompt_types, model_name, hf_model_name, load_in_4bit, load_in_8bit, use_20_fewshot, half, prompt_dir, res_dir, cache_dir = setup()
+    dataset_names, dataset_split, hf_dataset_name, prompt_types, model_name, hf_model_name, \
+        load_in_4bit, load_in_8bit, use_20_fewshot, partition, prompt_dir, res_dir, cache_dir = setup()
 
     # get the model
     model, tokenizer = load_model(hf_model_name, load_in_4bit, load_in_8bit, cache_dir)
 
     # run inference
-    run_inference(dataset_names, dataset_split, hf_dataset_name, prompt_types, model_name, half, use_20_fewshot, model, tokenizer, prompt_dir, res_dir)
+    run_inference(
+        dataset_names,
+        dataset_split,
+        hf_dataset_name,
+        prompt_types,
+        model_name,
+        partition,
+        use_20_fewshot,
+        model,
+        tokenizer,
+        prompt_dir,
+        res_dir
+    )

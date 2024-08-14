@@ -1,7 +1,7 @@
 #!/bin/bash
 
-model_name="llama 7b" # model nickname (for saving in folders)
-model_name_hf="meta-llama/Llama-2-7b-hf" # huggingface directory
+model_name="phi 2" # model nickname (for saving in folders)
+model_name_hf="microsoft/phi-2" # huggingface directory
 
 # list of experiments
 # see all possible experiments in: /mcqa-artifacts/model/data_loader.py
@@ -25,7 +25,7 @@ use_20_fewshot="False" # use a 20-shot prompt in ARC? ("False" or "True") => we 
 
 res_dir="/mcqa-artifacts/results/" # Results folder directory
 prompt_dir="/mcqa-artifacts/prompts/" # Prompt folder directory
-cache_dir="" # Cache directory to save the model
+cache_dir="/mcqa-artifacts/cache/" # Cache directory to save the model
 
 datasets_str=$(IFS=" "; echo "${datasets[*]}")
 experiments_str=$(IFS=" "; echo "${experiments[*]}")
