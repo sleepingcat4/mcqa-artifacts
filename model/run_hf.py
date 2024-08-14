@@ -1,5 +1,5 @@
 # imports and directory setup
-from data_loader import create_data, DatasetName, PromptType
+from data_loader import create_data, DatasetName, ModelName, PromptType
 
 import datasets
 from huggingface_hub.hf_api import HfFolder
@@ -36,9 +36,9 @@ def setup():
     parser.add_argument(
         "--model_name",
         '-m',
-        type=str,
+        type=enum_type(ModelName),
         help="(Nick)name of the model in directory",
-        default="llama 7b",
+        default=ModelName.llama_7b
     )
     parser.add_argument(
         "--model_name_hf",
