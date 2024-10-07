@@ -45,7 +45,7 @@ def setup():
         '-m',
         type=enum_type(ModelName),
         help="(Nick)name of models",
-        default=[ModelName.llama_7b, ModelName.falcon_40b, ModelName.mistral_7b, ModelName.phi_2]
+        default=[]
     )
     parser.add_argument(
         "--datasets",
@@ -71,6 +71,13 @@ def setup():
         type=str,
         help="Absolute directory of folder for saving plots",
         default="/mcqa-artifacts/images"
+    )
+    parser.add_argument(
+        "--plot_file_name",
+        "-f",
+        type=str,
+        help="Name of the plot file",
+        default="accuracy.png"
     )
 
     args = parser.parse_args()
@@ -130,7 +137,11 @@ model_names_map = {
     'llama_7b': 'LLaMA 7B',
     'falcon_40b': 'Falcon 40B',
     'mistral_7b': 'Mixtral 8x7B',
-    'phi_2': 'Phi 2'
+    'phi_2': 'Phi 2',
+    'pythia_1_4b': 'Pythia 1.4b',
+    'pythia_2_8b': 'Pythia 2.8b',
+    'pythia_6_9b': 'Pythia 6.9b',
+    'pythia_12b': 'Pythia 12b'
 }
 
 patterns = {
@@ -239,7 +250,8 @@ if __name__ == '__main__':
         for model_nickname in args.models:
             for pt in args.experiments:
                 data = create_data_evaluation(ds, dataset, pt)
-                questions, choices, answer_letters, answer_texts = data['questions'], data['choices'], data['answer_letters'], data['answer_texts']
+                questions, choices, answer_letters, answer_texts = \
+                    data['questions'], data['choices'], data['answer_letters'], data['answer_texts']
 
                 if dataset not in majority_accuracy:
                     freq = dict()
@@ -248,7 +260,8 @@ if __name__ == '__main__':
                     v = list(freq.values())
                     max_item = max(freq.items(), key=lambda item: item[1])[0]
                     majority_arr_ = [max_item for _ in range(len(questions))]
-                    majority_arr = [int(majority_arr_[m_idx] == answer_letters[m_idx]) for m_idx in range(len(majority_arr_))]
+                    majority_arr = \
+                        [int(majority_arr_[m_idx] == answer_letters[m_idx]) for m_idx in range(len(majority_arr_))]
                     majority_accuracy[dataset] = max(v) / sum(v)
 
                 res_dir = f'{args.res_dir}/{dataset.value}/{model_nickname}/{pt.value}.pkl'
@@ -280,7 +293,7 @@ if __name__ == '__main__':
                 benchmark_graph_data['Strategy'].append(pt.value)
 
         df = pd.DataFrame(benchmark_graph_data)
-        df['Strategy'] = pd.Categorical(df['Strategy'], categories=[e.value for e in args.experiments], ordered=True) #+ ['reported']
+        df['Strategy'] = pd.Categorical(df['Strategy'], categories=[e.value for e in args.experiments], ordered=True)  # + ['reported']
         df['LLM'] = pd.Categorical(df['LLM'], categories=[model_names_map[m] for m in args.models], ordered=True)
 
         ax = axs[idx_]
@@ -352,5 +365,5 @@ if __name__ == '__main__':
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=legend_margin)
-    print(f"Saving accuracy plot to {args.plot_dir}/plot_accuracy.png")
-    plt.savefig(os.path.join(args.plot_dir, "plot_accuracy.png"), dpi=500)
+    print(f"Saving accuracy plot to {args.plot_dir}/{args.plot_file_name}")
+    plt.savefig(os.path.join(args.plot_dir, args.plot_file_name), dpi=500)
