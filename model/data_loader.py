@@ -63,6 +63,10 @@ class ModelName(Enum):
     falcon_40b = 'falcon_40b'
     mistral_7b = 'mistral_7b'
     phi_2 = 'phi_2'
+    pythia_1_4b = 'pythia_1_4b'
+    pythia_2_8b = 'pythia_2_8b'
+    pythia_6_9b = 'pythia_6_9b'
+    pythia_12b = 'pythia_12b'
 
 
 prompt_type_map = {

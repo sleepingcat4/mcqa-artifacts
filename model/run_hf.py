@@ -38,7 +38,7 @@ def setup():
         '-m',
         type=enum_type(ModelName),
         help="(Nick)name of the model in directory",
-        default=ModelName.llama_7b
+        default=[ModelName.llama_7b]
     )
     parser.add_argument(
         "--model_name_hf",
@@ -56,31 +56,31 @@ def setup():
         "--train_dataset_split",
         type=str,
         help="Training dataset split",
-        default="",
+        default="train",
     )
     parser.add_argument(
         "--eval_dataset_split",
         type=str,
         help="Evaluation dataset split",
-        default="",
+        default="test",
     )
     parser.add_argument(
         "--hf_dataset_name",
         type=str,
         help="Name of the dataset on huggingface",
-        default="",
+        default="nbalepur/mcqa_artifacts",
     )
     parser.add_argument(
         "--load_in_8bit",
         type=str,
         help="Should we load the model in 8 bit?",
-        default="False",
+        default=False,
     )
     parser.add_argument(
         "--load_in_4bit",
         type=str,
         help="Should we load the model in 4 bit?",
-        default="False",
+        default=False,
     )
     parser.add_argument(
         "--hf_token",
@@ -92,37 +92,37 @@ def setup():
         '--prompt_types',
         type=enum_type(PromptType),
         help='Prompt types/experiments to run',
-        default=[]
+        default=[PromptType.normal, PromptType.artifact_choices]
     )
     parser.add_argument(
         "--partition",
         type=str,
         help="Which partition should be done",
-        default="none",
+        default="full",
     )
     parser.add_argument(
         "--use_20_fewshot",
         type=str,
         help="Should we use 20 fewshot examples? (for smaller models)",
-        default="False",
+        default=False,
     )
     parser.add_argument(
         "--prompt_dir",
         type=str,
         help="Absolute directory of the prompt folder",
-        default="False",
+        default=False,
     )
     parser.add_argument(
         "--cache_dir",
         type=str,
         help="Absolute directory of the cache folder for models",
-        default="False",
+        default=False,
     )
     parser.add_argument(
         "--res_dir",
         type=str,
         help="Absolute directory of the output results folder",
-        default="False",
+        default=False,
     )
 
     args = parser.parse_args()
@@ -137,7 +137,7 @@ def setup():
     dataset_split = (args.train_dataset_split, args.eval_dataset_split)
     hf_dataset_name = args.hf_dataset_name
     prompt_types = args.prompt_types
-    model_name = args.model_name
+    model_name = args.model_name[0]
     hf_model_name = args.model_name_hf
     partition = args.partition
 
@@ -167,6 +167,8 @@ def load_model(hf_model_name, load_in_4bit, load_in_8bit, cache_dir):
 
     # load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(hf_model_name, cache_dir=cache_dir)
+    # Setting `pad_token_id` to `eos_token_id` for open-end generation
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
     # set up pipeline
     dtype = {
@@ -186,7 +188,8 @@ def load_model(hf_model_name, load_in_4bit, load_in_8bit, cache_dir):
             "cache_dir": cache_dir,
             "do_sample": False,
             "load_in_4bit": load_in_4bit,
-            "load_in_8bit": load_in_8bit
+            "load_in_8bit": load_in_8bit,
+            "pad_token_id": tokenizer.pad_token_id
         }
     )
 
@@ -239,7 +242,7 @@ def run_inference(
     for dataset_name in dataset_names:
 
         # results directory setup
-        results_dir = f'{res_dir}/{dataset_name.value}/{model_name}'
+        results_dir = f'{res_dir}/{dataset_name.value}/{model_name.value}'
 
         for pt in prompt_types:
             data = create_data(ds, dataset_name, dataset_split, pt, prompt_dir, use_20_fewshot=use_20_fewshot)
@@ -284,6 +287,7 @@ def run_inference(
                 os.makedirs('/'.join(final_res_dir.split('/')[:-1]))
             with open(final_res_dir, 'wb') as handle:
                 pickle.dump(answers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print("Saved results to", final_res_dir)
 
 
 if __name__ == '__main__':
