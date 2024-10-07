@@ -42,10 +42,10 @@ class PromptType(Enum):
 
 
 class DatasetName(Enum):
-    mmlu = 'mmlu' # MMLU
-    HellaSwag = 'HellaSwag' # HellaSwag
-    ARC = 'ARC' # ARC
-    Winogrande = 'Winogrande' # Winogrande (not in paper)
+    mmlu = 'mmlu'  # MMLU
+    HellaSwag = 'HellaSwag'  # HellaSwag
+    ARC = 'ARC'  # ARC
+    Winogrande = 'Winogrande'  # Winogrande (not in paper)
 
 # class DatasetName(Enum):
 #     ARC = 'ARC'
@@ -54,6 +54,20 @@ class DatasetName(Enum):
 #     PIQA = 'PIQA'
 #     QASC = 'QASC'
 #     SIQA = 'SIQA'
+
+
+class ModelName(Enum):
+    llama_70b = 'llama_70b'
+    llama_13b = 'llama_13b'
+    llama_7b = 'llama_7b'
+    falcon_40b = 'falcon_40b'
+    mistral_7b = 'mistral_7b'
+    phi_2 = 'phi_2'
+    pythia_1_4b = 'pythia_1_4b'
+    pythia_2_8b = 'pythia_2_8b'
+    pythia_6_9b = 'pythia_6_9b'
+    pythia_12b = 'pythia_12b'
+
 
 prompt_type_map = {
     PromptType.normal: Normal,
